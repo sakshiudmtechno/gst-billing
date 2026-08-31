@@ -394,8 +394,9 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                 )}
               </div>
               <p className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider pt-1 border-t border-slate-300 mt-1">
-                {seller.authorizedSignatoryName || 'UDM Techno Solutions'}
+                {seller.authorizedSignatoryName || 'Authorized Signatory'}
               </p>
+              <p className="text-[9px] text-slate-500 uppercase tracking-wider">Authorized Signatory</p>
             </div>
           </div>
         </div>
@@ -455,7 +456,7 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Billed by</span>
                 <p className="font-bold text-slate-900 text-sm">{seller.businessName}</p>
-                <p className="text-xs text-slate-600 mt-1">Contact: <strong>{seller.authorizedSignatoryName || 'UDM Techno Solutions'}</strong></p>
+                <p className="text-xs text-slate-600 mt-1">Contact: <strong>{seller.authorizedSignatoryName || 'Authorized Signatory'}</strong></p>
                 {seller.phone && <p className="text-xs text-slate-600">Phone: <strong className="text-slate-900">{seller.phone}</strong></p>}
                 <p className="text-xs text-slate-600 font-mono">GSTIN: <span className="font-bold text-indigo-600">{seller.gstin}</span></p>
               </div>

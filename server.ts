@@ -64,7 +64,7 @@ const initialDb = {
     website: 'https://Udmtechno.com',
     logoUrl: '/udm-logo.svg',
     signatureUrl: '',
-    authorizedSignatoryName: 'UDM Techno Solutions',
+    authorizedSignatoryName: 'Mahendra Singh',
     bankName: 'Bank of Baroda',
     accountNumber: '05740100011588',
     accountHolderName: 'UDM Techno Solutions (Sankalp Nayak)',
