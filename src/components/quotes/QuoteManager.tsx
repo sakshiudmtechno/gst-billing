@@ -40,9 +40,11 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
   const [clientAddress, setClientAddress] = useState('');
   const [clientState, setClientState] = useState('Madhya Pradesh');
   const [clientStateCode, setClientStateCode] = useState('23');
+  const [applyGst, setApplyGst] = useState(false);
+  const [gstRate, setGstRate] = useState(18);
 
   const [items, setItems] = useState<Partial<QuoteItem>[]>([
-    { id: '1', name: '', description: '', rate: 0, quantity: 1, gstRate: 18 }
+    { id: '1', name: '', description: '', rate: 0, quantity: 1, gstRate: 0 }
   ]);
 
   
@@ -83,13 +85,13 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     setClientEmail('');
     setClientPhone('');
     setClientAddress('');
-    setItems([{ id: '1', name: '', description: '', rate: 0, quantity: 1, gstRate: 18 }]);
+    setItems([{ id: '1', name: '', description: '', rate: 0, quantity: 1 }]);
     setQuoteDate(new Date().toISOString().split('T')[0]);
     setValidUntil(new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]);
   };
 
   const handleAddItem = () => {
-    setItems([...items, { id: Date.now().toString(), name: '', description: '', rate: 0, quantity: 1, gstRate: 18 }]);
+    setItems([...items, { id: Date.now().toString(), name: '', description: '', rate: 0, quantity: 1 }]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -127,14 +129,14 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     let subtotal = 0;
     let totalGst = 0;
     const isInter = clientStateCode !== (businessProfile?.stateCode || '23');
+    const selectedGstRate = applyGst ? gstRate : 0;
 
     const finalItems = items.map((item, i) => {
       const rate = item.rate || 0;
       const qty = item.quantity || 1;
       const taxable = rate * qty;
-      const gstRate = item.gstRate || 0;
-      const gstAmt = (taxable * gstRate) / 100;
-      
+      const gstAmt = (taxable * selectedGstRate) / 100;
+
       subtotal += taxable;
       totalGst += gstAmt;
 
@@ -150,10 +152,10 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
         discountValue: 0,
         discountAmount: 0,
         taxableAmount: taxable,
-        gstRate: gstRate,
-        cgstAmount: isInter ? 0 : gstAmt / 2,
-        sgstAmount: isInter ? 0 : gstAmt / 2,
-        igstAmount: isInter ? gstAmt : 0,
+        gstRate: selectedGstRate,
+        cgstAmount: applyGst && !isInter ? gstAmt / 2 : 0,
+        sgstAmount: applyGst && !isInter ? gstAmt / 2 : 0,
+        igstAmount: applyGst && isInter ? gstAmt : 0,
         totalGstAmount: gstAmt,
         total: taxable + gstAmt
       } as QuoteItem;
@@ -174,10 +176,10 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
       items: finalItems,
       subtotal,
       totalTaxableAmount: subtotal,
-      totalGst,
-      totalCgst: isInter ? 0 : totalGst / 2,
-      totalSgst: isInter ? 0 : totalGst / 2,
-      totalIgst: isInter ? totalGst : 0,
+      totalGst: applyGst ? totalGst : 0,
+      totalCgst: applyGst && !isInter ? totalGst / 2 : 0,
+      totalSgst: applyGst && !isInter ? totalGst / 2 : 0,
+      totalIgst: applyGst && isInter ? totalGst : 0,
       grandTotal,
       template: 'classic', showBankDetails: false,
       seller: businessProfile ? { ...businessProfile, logoUrl: undefined } : undefined
@@ -224,14 +226,14 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
   let subtotal = 0;
   let totalGst = 0;
   const isInter = clientStateCode !== (businessProfile?.stateCode || '23');
+  const selectedGstRate = applyGst ? gstRate : 0;
 
   const finalItems = items.map((item, i) => {
     const rate = item.rate || 0;
     const qty = item.quantity || 1;
     const taxable = rate * qty;
-    const gstRate = item.gstRate || 0;
-    const gstAmt = (taxable * gstRate) / 100;
-    
+    const gstAmt = (taxable * selectedGstRate) / 100;
+
     subtotal += taxable;
     totalGst += gstAmt;
 
@@ -247,10 +249,10 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
       discountValue: 0,
       discountAmount: 0,
       taxableAmount: taxable,
-      gstRate: gstRate,
-      cgstAmount: isInter ? 0 : gstAmt / 2,
-      sgstAmount: isInter ? 0 : gstAmt / 2,
-      igstAmount: isInter ? gstAmt : 0,
+      gstRate: selectedGstRate,
+      cgstAmount: applyGst && !isInter ? gstAmt / 2 : 0,
+      sgstAmount: applyGst && !isInter ? gstAmt / 2 : 0,
+      igstAmount: applyGst && isInter ? gstAmt : 0,
       totalGstAmount: gstAmt,
       total: taxable + gstAmt
     } as QuoteItem;
@@ -271,14 +273,14 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     items: finalItems,
     subtotal,
     totalTaxableAmount: subtotal,
-    totalGst,
-    totalCgst: isInter ? 0 : totalGst / 2,
-    totalSgst: isInter ? 0 : totalGst / 2,
-    totalIgst: isInter ? totalGst : 0,
+    totalGst: applyGst ? totalGst : 0,
+    totalCgst: applyGst && !isInter ? totalGst / 2 : 0,
+    totalSgst: applyGst && !isInter ? totalGst / 2 : 0,
+    totalIgst: applyGst && isInter ? totalGst : 0,
     grandTotal,
     template: 'classic',
     seller: businessProfile,
-    showBankDetails: false // Make sure bank details are hidden for quotes!
+    showBankDetails: false
   };
 
   return (
@@ -379,7 +381,8 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
               <p className="text-xs text-slate-500">Auto-saves as you type. Real-time preview available.</p>
             </div>
             <div className="flex items-center gap-3">
-              <button type="button" onClick={() => resetForm()} className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+              <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Back</button>
+              <button type="button" onClick={resetForm} className="px-4 py-2 font-semibold text-red-600 hover:bg-red-50 rounded-lg">Cancel</button>
               <button type="button" onClick={handleSaveQuote} className="px-5 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">Save Estimate</button>
             </div>
           </div>
@@ -417,6 +420,34 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
                   <button type="button" onClick={handleAddItem} className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
                     <Plus className="w-3 h-3" /> Add Service Option
                   </button>
+                </div>
+
+                <div className="bg-indigo-50/50 border border-indigo-200 rounded-lg p-3 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={applyGst}
+                      onChange={e => setApplyGst(e.target.checked)}
+                      className="w-4 h-4 accent-indigo-600"
+                    />
+                    <span className="text-sm font-semibold text-indigo-900">Apply GST on this estimate</span>
+                  </label>
+                  {applyGst && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <label className="text-xs font-semibold text-slate-700">GST Rate (%):</label>
+                      <select
+                        value={gstRate}
+                        onChange={e => setGstRate(Number(e.target.value))}
+                        className="px-2 py-1 border border-indigo-200 rounded text-sm font-mono font-bold bg-white"
+                      >
+                        <option value={0}>0%</option>
+                        <option value={5}>5%</option>
+                        <option value={12}>12%</option>
+                        <option value={18}>18%</option>
+                        <option value={28}>28%</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-3 mb-6">
