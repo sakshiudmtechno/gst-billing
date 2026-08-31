@@ -40,9 +40,11 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
   const [clientAddress, setClientAddress] = useState('');
   const [clientState, setClientState] = useState('Madhya Pradesh');
   const [clientStateCode, setClientStateCode] = useState('23');
+  const [applyGst, setApplyGst] = useState(false);
+  const [gstRate, setGstRate] = useState(18);
 
   const [items, setItems] = useState<Partial<QuoteItem>[]>([
-    { id: '1', name: '', description: '', rate: 0, quantity: 1, gstRate: 18 }
+    { id: '1', name: '', description: '', rate: 0, quantity: 1 }
   ]);
 
   
@@ -67,6 +69,10 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     setClientState(quote.client.state || 'Madhya Pradesh');
     setClientStateCode(quote.client.stateCode || '23');
     setItems(quote.items.map(item => ({...item})));
+    if (quote.items && quote.items.length > 0 && quote.items[0].gstRate > 0) {
+      setApplyGst(true);
+      setGstRate(quote.items[0].gstRate);
+    }
     
     if (quote.quoteDate) setQuoteDate(quote.quoteDate);
     if (quote.validUntil) setValidUntil(quote.validUntil);
@@ -83,13 +89,15 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     setClientEmail('');
     setClientPhone('');
     setClientAddress('');
-    setItems([{ id: '1', name: '', description: '', rate: 0, quantity: 1, gstRate: 18 }]);
+    setItems([{ id: '1', name: '', description: '', rate: 0, quantity: 1 }]);
+    setApplyGst(false);
+    setGstRate(18);
     setQuoteDate(new Date().toISOString().split('T')[0]);
     setValidUntil(new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]);
   };
 
   const handleAddItem = () => {
-    setItems([...items, { id: Date.now().toString(), name: '', description: '', rate: 0, quantity: 1, gstRate: 18 }]);
+    setItems([...items, { id: Date.now().toString(), name: '', description: '', rate: 0, quantity: 1 }]);
   };
 
   const handleRemoveItem = (index: number) => {
@@ -125,13 +133,18 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     };
 
     let subtotal = 0;
+    let totalGst = 0;
+    const isInter = clientStateCode !== (businessProfile?.stateCode || '23');
+    const selectedGstRate = applyGst ? gstRate : 0;
 
     const finalItems = items.map((item, i) => {
       const rate = item.rate || 0;
       const qty = item.quantity || 1;
       const taxable = rate * qty;
+      const gstAmt = (taxable * selectedGstRate) / 100;
 
       subtotal += taxable;
+      totalGst += gstAmt;
 
       return {
         id: `qi_${Date.now()}_${i}`,
@@ -145,16 +158,16 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
         discountValue: 0,
         discountAmount: 0,
         taxableAmount: taxable,
-        gstRate: 0,
-        cgstAmount: 0,
-        sgstAmount: 0,
-        igstAmount: 0,
-        totalGstAmount: 0,
-        total: taxable
+        gstRate: selectedGstRate,
+        cgstAmount: applyGst && !isInter ? gstAmt / 2 : 0,
+        sgstAmount: applyGst && !isInter ? gstAmt / 2 : 0,
+        igstAmount: applyGst && isInter ? gstAmt : 0,
+        totalGstAmount: gstAmt,
+        total: taxable + gstAmt
       } as QuoteItem;
     });
 
-    const grandTotal = subtotal;
+    const grandTotal = subtotal + totalGst;
 
     const newQuote = {
       quoteNumber,
@@ -169,10 +182,10 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
       items: finalItems,
       subtotal,
       totalTaxableAmount: subtotal,
-      totalGst: 0,
-      totalCgst: 0,
-      totalSgst: 0,
-      totalIgst: 0,
+      totalGst: applyGst ? totalGst : 0,
+      totalCgst: applyGst && !isInter ? totalGst / 2 : 0,
+      totalSgst: applyGst && !isInter ? totalGst / 2 : 0,
+      totalIgst: applyGst && isInter ? totalGst : 0,
       grandTotal,
       template: 'classic', showBankDetails: false,
       seller: businessProfile ? { ...businessProfile, logoUrl: undefined } : undefined
@@ -217,13 +230,18 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
   };
 
   let subtotal = 0;
+  let totalGst = 0;
+  const isInter = clientStateCode !== (businessProfile?.stateCode || '23');
+  const selectedGstRate = applyGst ? gstRate : 0;
 
   const finalItems = items.map((item, i) => {
     const rate = item.rate || 0;
     const qty = item.quantity || 1;
     const taxable = rate * qty;
+    const gstAmt = (taxable * selectedGstRate) / 100;
 
     subtotal += taxable;
+    totalGst += gstAmt;
 
     return {
       id: `qi_${Date.now()}_${i}`,
@@ -237,16 +255,16 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
       discountValue: 0,
       discountAmount: 0,
       taxableAmount: taxable,
-      gstRate: 0,
-      cgstAmount: 0,
-      sgstAmount: 0,
-      igstAmount: 0,
-      totalGstAmount: 0,
-      total: taxable
+      gstRate: selectedGstRate,
+      cgstAmount: applyGst && !isInter ? gstAmt / 2 : 0,
+      sgstAmount: applyGst && !isInter ? gstAmt / 2 : 0,
+      igstAmount: applyGst && isInter ? gstAmt : 0,
+      totalGstAmount: gstAmt,
+      total: taxable + gstAmt
     } as QuoteItem;
   });
 
-  const grandTotal = subtotal;
+  const grandTotal = subtotal + totalGst;
 
   const previewQuote = {
     quoteNumber,
@@ -261,10 +279,10 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     items: finalItems,
     subtotal,
     totalTaxableAmount: subtotal,
-    totalGst: 0,
-    totalCgst: 0,
-    totalSgst: 0,
-    totalIgst: 0,
+    totalGst: applyGst ? totalGst : 0,
+    totalCgst: applyGst && !isInter ? totalGst / 2 : 0,
+    totalSgst: applyGst && !isInter ? totalGst / 2 : 0,
+    totalIgst: applyGst && isInter ? totalGst : 0,
     grandTotal,
     template: 'classic',
     seller: businessProfile,
@@ -409,7 +427,35 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
                     <Plus className="w-3 h-3" /> Add Service Option
                   </button>
                 </div>
-                
+
+                <div className="bg-indigo-50/50 border border-indigo-200 rounded-lg p-3 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={applyGst}
+                      onChange={e => setApplyGst(e.target.checked)}
+                      className="w-4 h-4 accent-indigo-600"
+                    />
+                    <span className="text-sm font-semibold text-indigo-900">Apply GST on this estimate</span>
+                  </label>
+                  {applyGst && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <label className="text-xs font-semibold text-slate-700">GST Rate (%):</label>
+                      <select
+                        value={gstRate}
+                        onChange={e => setGstRate(Number(e.target.value))}
+                        className="px-2 py-1 border border-indigo-200 rounded text-sm font-mono font-bold bg-white"
+                      >
+                        <option value={0}>0%</option>
+                        <option value={5}>5%</option>
+                        <option value={12}>12%</option>
+                        <option value={18}>18%</option>
+                        <option value={28}>28%</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-3 mb-6">
                   {items.map((item, index) => (
                     <div key={index} className="bg-slate-50 p-3 rounded-lg border border-slate-200 flex gap-3 items-start relative">
