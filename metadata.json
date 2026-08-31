@@ -1,0 +1,8 @@
+{
+  "name": "GST Billing & Invoicing CRM - UDM Techno Solutions",
+  "description": "Professional Indian GST Billing & Invoicing CRM with PDF generation, client management, tax automation, quotations, credit notes, expenses, and financial reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

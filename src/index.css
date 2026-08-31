@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@media print {
+  /* Hide all dashboard layout elements, sidebars, navigation, modals backdrop buttons */
+  aside,
+  header,
+  nav,
+  button,
+  .no-print,
+  input,
+  select,
+  textarea {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 6mm 8mm;
+  }
+
+  /* Ensure invoice container prints cleanly taking full page width */
+  #live-invoice-pdf-preview,
+  [id^="modal-global-pdf-"],
+  [id^="modal-invoice-pdf-"],
+  #invoice-pdf-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+}
+

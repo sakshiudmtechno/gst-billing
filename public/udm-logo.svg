@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 160" width="100%" height="100%">
+  <defs>
+    <linearGradient id="udmGradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+    <linearGradient id="udmGradient2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#c7d2fe" />
+      <stop offset="60%" stop-color="#818cf8" />
+      <stop offset="100%" stop-color="#4338ca" />
+    </linearGradient>
+    <linearGradient id="udmSoft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e0e7ff" />
+      <stop offset="100%" stop-color="#a5b4fc" />
+    </linearGradient>
+  </defs>
+
+  <!-- Monogram U -->
+  <g transform="translate(15, 20)">
+    <!-- Left Dark Navy Stem -->
+    <path
+      d="M 12 5 L 36 5 L 36 82 C 36 102 50 114 68 114 C 76 114 83 111 89 106 C 81 113 70 117 58 117 C 32 117 12 97 12 72 Z"
+      fill="#141a36"
+    />
+
+    <!-- Inner Soft Light Blue Petal/Curve -->
+    <path
+      d="M 36 68 C 36 88 48 106 68 112 C 52 108 38 94 36 78 Z"
+      fill="url(#udmSoft)"
+      opacity="0.9"
+    />
+
+    <!-- Right Flowing Blue Loop / Ribbon -->
+    <path
+      d="M 90 5 L 114 5 L 114 74 C 114 100 94 122 66 122 C 42 122 25 106 20 86 C 26 100 42 112 62 112 C 84 112 94 96 94 74 L 94 5 Z"
+      fill="url(#udmGradient1)"
+    />
+
+    <!-- Diagonal Layer Ribbon Accent -->
+    <path
+      d="M 68 114 C 88 110 114 92 114 55 L 94 55 C 94 78 80 96 60 102 C 63 107 65 111 68 114 Z"
+      fill="url(#udmGradient2)"
+    />
+  </g>
+
+  <!-- Typography: UDM -->
+  <text
+    x="148"
+    y="92"
+    fill="#141a36"
+    font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+    font-size="70"
+    font-weight="900"
+    letter-spacing="1.5"
+  >UDM</text>
+
+  <!-- Typography: TECHNO SOLUTIONS -->
+  <text
+    x="151"
+    y="126"
+    fill="#141a36"
+    font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+    font-size="16"
+    font-weight="800"
+    letter-spacing="4.5"
+  >TECHNO SOLUTIONS</text>
+</svg>
