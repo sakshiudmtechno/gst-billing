@@ -80,19 +80,18 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
   // Form States
   const [invoiceNumber, setInvoiceNumber] = useState<string>('AUTO');
-  const [poNumber, setPoNumber] = useState<string>('');
   const [invoiceDate, setInvoiceDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + 15);
     return d.toISOString().split('T')[0];
   });
-  const [placeOfSupply, setPlaceOfSupply] = useState<string>('Madhya Pradesh');
-  const [placeOfSupplyCode, setPlaceOfSupplyCode] = useState<string>('23');
   const [currency, setCurrency] = useState<string>('INR');
   const [template, setTemplate] = useState<InvoiceTemplateType>('classic');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [placeOfSupply, setPlaceOfSupply] = useState<string>('Madhya Pradesh');
+  const [placeOfSupplyCode, setPlaceOfSupplyCode] = useState<string>('23');
 
   // Shipping Details
   const [hasShippingAddress, setHasShippingAddress] = useState(false);
@@ -158,7 +157,6 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
         if (initialInvoice) {
           // Editing existing invoice
           setInvoiceNumber(initialInvoice.invoiceNumber);
-          setPoNumber(initialInvoice.poNumber || '');
           setInvoiceDate(initialInvoice.invoiceDate);
           setDueDate(initialInvoice.dueDate);
           setPlaceOfSupply(initialInvoice.placeOfSupply);
@@ -420,7 +418,6 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   const currentInvoiceData: Invoice = {
     id: initialInvoice?.id || `inv_${Date.now()}`,
     invoiceNumber: invoiceNumber || 'A000345',
-    poNumber,
     invoiceDate,
     dueDate,
     placeOfSupply,
@@ -790,7 +787,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
           <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 border-b border-slate-100 pb-2 flex items-center gap-1.5">
               <Building className="w-3.5 h-3.5 text-indigo-600" />
-              Invoice Meta & Place of Supply
+              Invoice Meta
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 text-xs">
@@ -825,41 +822,6 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   onChange={(e) => setDueDate(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 text-xs focus:ring-2 focus:ring-indigo-600 outline-hidden"
                 />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">PO / Ref Number</label>
-                <input
-                  type="text"
-                  placeholder="Optional PO or Ref #"
-                  value={poNumber}
-                  onChange={(e) => setPoNumber(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 text-xs focus:ring-2 focus:ring-indigo-600 outline-hidden"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Place of Supply (State) <span className="text-slate-400 font-normal text-[11px]">— Controls IGST vs CGST/SGST</span>
-                </label>
-                <select
-                  value={placeOfSupplyCode}
-                  onChange={(e) => {
-                    const code = e.target.value;
-                    const st = INDIAN_STATES.find(s => s.code === code);
-                    if (st) {
-                      setPlaceOfSupply(st.name);
-                      setPlaceOfSupplyCode(st.code);
-                    }
-                  }}
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-medium text-xs focus:ring-2 focus:ring-indigo-600 outline-hidden truncate"
-                >
-                  {INDIAN_STATES.map(s => (
-                    <option key={s.code} value={s.code}>
-                      {s.name} (State Code: {s.code}) {s.code === '23' ? '• Intra-State (Home)' : '• Inter-State (IGST)'}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
           </div>

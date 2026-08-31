@@ -125,18 +125,13 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     };
 
     let subtotal = 0;
-    let totalGst = 0;
-    const isInter = clientStateCode !== (businessProfile?.stateCode || '23');
 
     const finalItems = items.map((item, i) => {
       const rate = item.rate || 0;
       const qty = item.quantity || 1;
       const taxable = rate * qty;
-      const gstRate = item.gstRate || 0;
-      const gstAmt = (taxable * gstRate) / 100;
-      
+
       subtotal += taxable;
-      totalGst += gstAmt;
 
       return {
         id: `qi_${Date.now()}_${i}`,
@@ -150,16 +145,16 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
         discountValue: 0,
         discountAmount: 0,
         taxableAmount: taxable,
-        gstRate: gstRate,
-        cgstAmount: isInter ? 0 : gstAmt / 2,
-        sgstAmount: isInter ? 0 : gstAmt / 2,
-        igstAmount: isInter ? gstAmt : 0,
-        totalGstAmount: gstAmt,
-        total: taxable + gstAmt
+        gstRate: 0,
+        cgstAmount: 0,
+        sgstAmount: 0,
+        igstAmount: 0,
+        totalGstAmount: 0,
+        total: taxable
       } as QuoteItem;
     });
 
-    const grandTotal = subtotal + totalGst;
+    const grandTotal = subtotal;
 
     const newQuote = {
       quoteNumber,
@@ -174,10 +169,10 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
       items: finalItems,
       subtotal,
       totalTaxableAmount: subtotal,
-      totalGst,
-      totalCgst: isInter ? 0 : totalGst / 2,
-      totalSgst: isInter ? 0 : totalGst / 2,
-      totalIgst: isInter ? totalGst : 0,
+      totalGst: 0,
+      totalCgst: 0,
+      totalSgst: 0,
+      totalIgst: 0,
       grandTotal,
       template: 'classic', showBankDetails: false,
       seller: businessProfile ? { ...businessProfile, logoUrl: undefined } : undefined
@@ -222,18 +217,13 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
   };
 
   let subtotal = 0;
-  let totalGst = 0;
-  const isInter = clientStateCode !== (businessProfile?.stateCode || '23');
 
   const finalItems = items.map((item, i) => {
     const rate = item.rate || 0;
     const qty = item.quantity || 1;
     const taxable = rate * qty;
-    const gstRate = item.gstRate || 0;
-    const gstAmt = (taxable * gstRate) / 100;
-    
+
     subtotal += taxable;
-    totalGst += gstAmt;
 
     return {
       id: `qi_${Date.now()}_${i}`,
@@ -247,16 +237,16 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
       discountValue: 0,
       discountAmount: 0,
       taxableAmount: taxable,
-      gstRate: gstRate,
-      cgstAmount: isInter ? 0 : gstAmt / 2,
-      sgstAmount: isInter ? 0 : gstAmt / 2,
-      igstAmount: isInter ? gstAmt : 0,
-      totalGstAmount: gstAmt,
-      total: taxable + gstAmt
+      gstRate: 0,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+      totalGstAmount: 0,
+      total: taxable
     } as QuoteItem;
   });
 
-  const grandTotal = subtotal + totalGst;
+  const grandTotal = subtotal;
 
   const previewQuote = {
     quoteNumber,
@@ -271,10 +261,10 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     items: finalItems,
     subtotal,
     totalTaxableAmount: subtotal,
-    totalGst,
-    totalCgst: isInter ? 0 : totalGst / 2,
-    totalSgst: isInter ? 0 : totalGst / 2,
-    totalIgst: isInter ? totalGst : 0,
+    totalGst: 0,
+    totalCgst: 0,
+    totalSgst: 0,
+    totalIgst: 0,
     grandTotal,
     template: 'classic',
     seller: businessProfile,
@@ -379,6 +369,7 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
               <p className="text-xs text-slate-500">Auto-saves as you type. Real-time preview available.</p>
             </div>
             <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Back</button>
               <button type="button" onClick={() => resetForm()} className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
               <button type="button" onClick={handleSaveQuote} className="px-5 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">Save Estimate</button>
             </div>

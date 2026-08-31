@@ -23,7 +23,7 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
   businessProfileFallback
 }) => {
   const template = templateOverride || invoice.template || 'classic';
-  const seller = invoice.seller;
+  const seller = invoice.seller || businessProfileFallback || {};
   const logoUrl = seller?.logoUrl || businessProfileFallback?.logoUrl;
   const client = invoice.client;
   const isInterState = invoice.isInterState ?? isInterStateSupply(seller.stateCode, invoice.placeOfSupplyCode || client.stateCode);
@@ -97,12 +97,6 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                   <span className="font-bold text-slate-700 whitespace-nowrap">{isQuote ? 'Valid Until' : 'Due Date'}</span>
                   <span className="font-medium text-slate-900 truncate ml-2">{(invoice as any).validUntil || invoice.dueDate}</span>
                 </div>
-                {invoice.poNumber && (
-                  <div className="flex justify-between border-b border-slate-200 pb-[2px]">
-                    <span className="font-bold text-slate-700">PO #</span>
-                    <span className="font-mono text-slate-900 truncate ml-2">{invoice.poNumber}</span>
-                  </div>
-                )}
                 <div className="flex justify-between">
                   <span className="font-bold text-slate-700">FY</span>
                   <span className="text-slate-600">{invoice.financialYear}</span>
@@ -132,29 +126,27 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
               </div>
             </div>
 
-            {/* Supply & Service */}
+            {/* Billed By */}
             <div className="border border-slate-300 rounded-sm overflow-hidden">
               <div className="bg-slate-100 px-2 py-[3px] border-b border-slate-300">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-900">Supply & Service Details</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-900">Billed By</span>
               </div>
               <div className="p-2 text-[10.5px] text-slate-700 leading-snug space-y-[2px]">
-                <div className="flex justify-between"><span className="font-semibold text-slate-600">Place of Supply:</span> <span className="font-medium text-slate-900">{invoice.placeOfSupply || client.state} ({invoice.placeOfSupplyCode || client.stateCode})</span></div>
-                <div className="flex justify-between"><span className="font-semibold text-slate-600">Tax Type:</span> <span className="font-bold text-indigo-900">{isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST + SGST)'}</span></div>
-                <div className="flex justify-between"><span className="font-semibold text-slate-600">Currency:</span> <span className="font-medium text-slate-900">{invoice.currency || 'INR'}</span></div>
-                {invoice.hasShippingAddress && invoice.shippingName ? (
-                  <div className="pt-1 mt-1 border-t border-slate-200 space-y-[2px]">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Ship To</p>
-                    <p className="font-bold text-slate-900 text-[11px] leading-tight">{invoice.shippingName}</p>
-                    {invoice.shippingAddress && <p className="whitespace-pre-line">{invoice.shippingAddress}</p>}
-                    <p>{invoice.shippingCity ? `${invoice.shippingCity}, ` : ''}{invoice.shippingState} {invoice.shippingPinCode ? `- ${invoice.shippingPinCode}` : ''}</p>
-                    {invoice.shippingGstin && <p className="font-mono"><span className="font-bold text-indigo-900">GSTIN:</span> <span className="font-bold text-slate-800">{invoice.shippingGstin}</span></p>}
-                  </div>
-                ) : (
-                  <div className="pt-1 mt-1 border-t border-slate-200">
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Shipping</p>
-                    <p className="text-slate-400 italic">Same as billing address</p>
-                  </div>
-                )}
+                <div className="flex justify-between">
+                  <span className="font-bold text-slate-900">UDM Techno Solutions</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-600">Contact Support:</span>
+                  <span className="font-medium text-slate-900">+91 91091 24357</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-600">Tax Type:</span>
+                  <span className="font-bold text-indigo-900">{isInterState ? 'Inter-State (IGST)' : 'Intra-State (CGST + SGST)'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-600">Currency:</span>
+                  <span className="font-medium text-slate-900">{invoice.currency || 'INR'}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -456,7 +448,7 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Billed by</span>
                 <p className="font-bold text-slate-900 text-sm">{seller.businessName}</p>
-                <p className="text-xs text-slate-600 mt-1">Contact: <strong>{seller.authorizedSignatoryName || 'Authorized Signatory'}</strong></p>
+                <p className="text-xs text-slate-600 mt-1">Contact Support: <strong>+91 91091 24357</strong></p>
                 {seller.phone && <p className="text-xs text-slate-600">Phone: <strong className="text-slate-900">{seller.phone}</strong></p>}
                 <p className="text-xs text-slate-600 font-mono">GSTIN: <span className="font-bold text-indigo-600">{seller.gstin}</span></p>
               </div>
