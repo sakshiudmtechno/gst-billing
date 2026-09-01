@@ -289,10 +289,11 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Signatory Title</label>
+                <label className="block font-semibold text-slate-700 mb-1">Signatory Name (Optional)</label>
                 <input
                   type="text"
-                  value={profile.authorizedSignatoryName}
+                  placeholder="e.g. Leave blank for default 'Authorized Signatory'"
+                  value={profile.authorizedSignatoryName || ''}
                   onChange={(e) => handleChange('authorizedSignatoryName', e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 text-xs"
                 />

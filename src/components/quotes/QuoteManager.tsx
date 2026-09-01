@@ -4,7 +4,7 @@ import { api } from '../../utils/api';
 import { downloadElementAsPdf, triggerPrint } from '../../utils/pdfGenerator';
 import { InvoicePDFTemplate } from '../invoices/InvoicePDFTemplate';
 import { PREDEFINED_SERVICES } from '../../constants/services';
-import { Plus, Trash2, Download, Eye, X, Send, Clock, Sparkles, Edit } from 'lucide-react';
+import { Plus, Trash2, Download, Eye, X, Send, Clock, Sparkles, Edit, ArrowLeft, Loader2 } from 'lucide-react';
 
 interface QuoteManagerProps {
   quotes: Quote[];
@@ -23,6 +23,8 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [quoteDate, setQuoteDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [validUntil, setValidUntil] = useState<string>(() => {
     const d = new Date();
@@ -30,6 +32,8 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     return d.toISOString().split('T')[0];
   });
   const [viewingQuote, setViewingQuote] = useState<Quote | null>(null);
+  const [downloadingQuoteId, setDownloadingQuoteId] = useState<string | null>(null);
+  const [directDownloadQuote, setDirectDownloadQuote] = useState<Quote | null>(null);
 
   // Quick Quote Form State
   const [quoteNumber, setQuoteNumber] = useState(`EST-${Date.now().toString().slice(-4)}`);
@@ -110,17 +114,25 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     setItems(newItems);
   };
 
-  const handleSaveQuote = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveQuote = async (e?: React.FormEvent) => {
+    if (e && e.preventDefault) e.preventDefault();
+
+    if (!clientName.trim()) {
+      alert('Please enter a Client Name before saving the estimate.');
+      return;
+    }
+
+    setIsSaving(true);
     
-    // Auto-create a temporary client object for the PDF
-    const tempClient: Client = {
+    // Auto-create a temporary client object for the quote
+    const formattedClientName = companyName.trim() ? `${clientName.trim()} (${companyName.trim()})` : clientName.trim();
+    const tempClientObj: Client = {
       id: `client_${Date.now()}`,
-      name: companyName ? `${clientName} (${companyName})` : clientName,
-      contactPerson: clientName,
-      email: clientEmail,
-      phone: clientPhone,
-      billingAddress: clientAddress || 'Not Provided',
+      name: formattedClientName,
+      contactPerson: clientName.trim(),
+      email: clientEmail.trim(),
+      phone: clientPhone.trim(),
+      billingAddress: clientAddress.trim() || 'Not Provided',
       city: '',
       state: clientState,
       stateCode: clientStateCode,
@@ -138,8 +150,8 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
     const selectedGstRate = applyGst ? gstRate : 0;
 
     const finalItems = items.map((item, i) => {
-      const rate = item.rate || 0;
-      const qty = item.quantity || 1;
+      const rate = Number(item.rate) || 0;
+      const qty = Number(item.quantity) || 1;
       const taxable = rate * qty;
       const gstAmt = (taxable * selectedGstRate) / 100;
 
@@ -147,12 +159,12 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
       totalGst += gstAmt;
 
       return {
-        id: `qi_${Date.now()}_${i}`,
-        name: item.name || 'Service',
-        description: item.description || '',
-        hsnSac: '9983',
+        id: item.id || `qi_${Date.now()}_${i}`,
+        name: item.name?.trim() || 'Service',
+        description: item.description?.trim() || '',
+        hsnSac: item.hsnSac || '9983',
         quantity: qty,
-        unit: 'JOB',
+        unit: item.unit || 'JOB',
         rate: rate,
         discountType: 'percentage',
         discountValue: 0,
@@ -171,8 +183,8 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
 
     const newQuote = {
       quoteNumber,
-      clientId: tempClient.id,
-      client: tempClient,
+      clientId: tempClientObj.id,
+      client: tempClientObj,
       quoteDate: quoteDate,
       validUntil: validUntil,
       status: 'draft',
@@ -187,26 +199,58 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
       totalSgst: applyGst && !isInter ? totalGst / 2 : 0,
       totalIgst: applyGst && isInter ? totalGst : 0,
       grandTotal,
-      template: 'classic', showBankDetails: false,
+      template: 'classic',
+      showBankDetails: false,
       seller: businessProfile ? { ...businessProfile, logoUrl: undefined } : undefined
     };
 
     try {
-      // If user wants to save client, we can send to POST /api/clients first, but let's just save quote
       if (editingQuoteId) {
-        const updatedQuote = await api.updateQuote(editingQuoteId, newQuote as any);
-        resetForm();
-        onRefresh();
-        setViewingQuote(updatedQuote);
+        await api.updateQuote(editingQuoteId, newQuote as any);
       } else {
-        const savedQuote = await api.createQuote(newQuote as any);
-        resetForm();
-        onRefresh();
-        setViewingQuote(savedQuote);
+        await api.createQuote(newQuote as any);
       }
-    } catch (err) {
+      
+      // Refresh list from server so it immediately shows in the table
+      await onRefresh();
+      
+      // Reset form and close the create/edit screen, returning to the Estimates & Quotes table
+      resetForm();
+      setIsCreating(false);
+      setViewingQuote(null);
+    } catch (err: any) {
       console.error(err);
-      alert(`Failed to save quote: ${err.message || err}`);
+      alert(`Failed to save estimate: ${err.message || err}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDownloadEstimatePdf = async () => {
+    try {
+      setIsDownloadingPdf(true);
+      await downloadElementAsPdf('live-quote-pdf', `Estimate-${quoteNumber}.pdf`);
+    } catch (err) {
+      console.error('Failed to download PDF:', err);
+      alert('Failed to generate estimate PDF. Please try again.');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleDownloadRowPdf = async (quote: Quote) => {
+    try {
+      setDownloadingQuoteId(quote.id);
+      setDirectDownloadQuote(quote);
+      // Wait for DOM element render
+      await new Promise(resolve => setTimeout(resolve, 150));
+      await downloadElementAsPdf(`direct-quote-pdf-${quote.id}`, `Estimate-${quote.quoteNumber}.pdf`);
+    } catch (err) {
+      console.error('Failed to download quote PDF:', err);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setDownloadingQuoteId(null);
+      setDirectDownloadQuote(null);
     }
   };
 
@@ -292,6 +336,30 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
   return (
 
     <div className="space-y-6">
+      {/* Hidden staging container for direct row download */}
+      {directDownloadQuote && (
+        <div
+          id={`direct-quote-pdf-wrapper-${directDownloadQuote.id}`}
+          style={{
+            position: 'fixed',
+            left: 0,
+            top: 0,
+            width: '800px',
+            zIndex: -9999,
+            opacity: 1,
+            pointerEvents: 'none',
+            backgroundColor: '#ffffff'
+          }}
+        >
+          <InvoicePDFTemplate
+            id={`direct-quote-pdf-${directDownloadQuote.id}`}
+            invoice={directDownloadQuote as any}
+            documentTitle="SERVICE QUOTATION"
+            businessProfileFallback={businessProfile}
+          />
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -344,30 +412,46 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
                       </span>
                     </td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => setViewingQuote(quote)}
-                        className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded"
-                        title="View & Download"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleEditQuote(quote)}
-                        className="ml-2 p-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                        title="Edit Quote"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      {quote.status !== 'converted' && (
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setViewingQuote(quote)}
+                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded"
+                          title="View Estimate Preview"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        
+                        <button
+                          onClick={() => handleDownloadRowPdf(quote)}
+                          disabled={downloadingQuoteId === quote.id}
+                          className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors disabled:opacity-50"
+                          title="Download Estimate PDF"
+                          aria-label={`Download PDF for estimate ${quote.quoteNumber}`}
+                        >
+                          {downloadingQuoteId === quote.id ? (
+                            <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                          )}
+                        </button>
 
                         <button
-                          onClick={() => onConvertToInvoice(quote)}
-                          className="ml-2 p-1.5 text-emerald-600 hover:bg-emerald-50 rounded text-xs font-semibold"
+                          onClick={() => handleEditQuote(quote)}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                          title="Edit Estimate"
                         >
-                          Convert to Invoice
+                          <Edit className="w-4 h-4" />
                         </button>
-                      )}
+                        {quote.status !== 'converted' && (
+                          <button
+                            onClick={() => onConvertToInvoice(quote)}
+                            className="ml-1 px-2 py-1 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded text-xs font-semibold"
+                            title="Convert to Invoice"
+                          >
+                            Convert to Invoice
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -387,8 +471,44 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
               <p className="text-xs text-slate-500">Auto-saves as you type. Real-time preview available.</p>
             </div>
             <div className="flex items-center gap-3">
-              <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Back</button>
-              <button type="button" onClick={handleSaveQuote} className="px-5 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">Save Estimate</button>
+              <button 
+                type="button" 
+                onClick={handleDownloadEstimatePdf} 
+                disabled={isDownloadingPdf}
+                className="px-4 py-2 font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm flex items-center gap-1.5 border border-indigo-200"
+                title="Download Estimate as PDF"
+              >
+                {isDownloadingPdf ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Generating PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    <span>Download PDF</span>
+                  </>
+                )}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => {
+                  resetForm();
+                  setIsCreating(false);
+                }} 
+                className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg text-sm flex items-center gap-1.5"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back</span>
+              </button>
+              <button 
+                type="button" 
+                onClick={() => handleSaveQuote()} 
+                disabled={isSaving}
+                className="px-5 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm text-sm flex items-center gap-2"
+              >
+                {isSaving ? 'Saving...' : (editingQuoteId ? 'Update Estimate' : 'Save Estimate')}
+              </button>
             </div>
           </div>
           
@@ -504,6 +624,47 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
                       )}
                     </div>
                   ))}
+                </div>
+
+                <div className="pt-4 border-t border-slate-200 flex justify-end gap-3">
+                  <button 
+                    type="button" 
+                    onClick={handleDownloadEstimatePdf} 
+                    disabled={isDownloadingPdf}
+                    className="px-4 py-2 font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm flex items-center gap-1.5 border border-indigo-200"
+                    title="Download Estimate as PDF"
+                  >
+                    {isDownloadingPdf ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Generating PDF...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4" />
+                        <span>Download PDF</span>
+                      </>
+                    )}
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      resetForm();
+                      setIsCreating(false);
+                    }} 
+                    className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg text-sm flex items-center gap-1.5"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Back</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => handleSaveQuote()} 
+                    disabled={isSaving}
+                    className="px-6 py-2.5 font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm text-sm flex items-center gap-2"
+                  >
+                    {isSaving ? 'Saving...' : (editingQuoteId ? 'Update Estimate' : 'Save Estimate')}
+                  </button>
                 </div>
               </form>
             </div>
