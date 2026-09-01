@@ -39,8 +39,8 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
   const accountNumber = seller.accountNumber || '05740100011588';
   const ifscCode = seller.ifscCode || 'BARB0MEGHNA';
   const branch = seller.branch || 'Indore';
-  const upiId = seller.upiId || 'sankalpnayakk-2@oksbi';
-  const customQrImage = seller.upiQrImageUrl || seller.qrCodeUrl;
+  const upiId = seller.upiId || 'sankalpnayakk-2@okicici';
+  const customQrImage = seller.upiQrImageUrl || seller.qrCodeUrl || '/upi-qr.png';
 
   const advancePaid = Number(invoice.advanceAmount) || 0;
   const totalAmountPaid = Number(invoice.amountPaid) || advancePaid;

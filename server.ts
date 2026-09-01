@@ -70,7 +70,8 @@ const initialDb = {
     accountHolderName: 'UDM Techno Solutions (Sankalp Nayak)',
     ifscCode: 'BARB0MEGHNA',
     branch: 'Indore',
-    upiId: 'sankalpnayakk-2@oksbi'
+    upiId: 'sankalpnayakk-2@okicici',
+    upiQrImageUrl: '/upi-qr.png'
   },
   invoiceSettings: {
     prefix: 'A',
@@ -100,7 +101,7 @@ const initialDb = {
     accountNumber: '05740100011588',
     ifsc: 'BARB0MEGHNA',
     branch: 'Indore',
-    upiId: 'sankalpnayakk-2@oksbi',
+    upiId: 'sankalpnayakk-2@okicici',
     enableUpiQr: true
   },
   pdfSettings: {

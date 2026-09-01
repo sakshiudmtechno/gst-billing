@@ -49,7 +49,8 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
       accountHolderName: 'UDM Techno Solutions (Sankalp Nayak)',
       ifscCode: 'BARB0MEGHNA',
       branch: 'Indore',
-      upiId: 'sankalpnayakk-2@oksbi',
+      upiId: 'sankalpnayakk-2@okicici',
+      upiQrImageUrl: '/upi-qr.png',
       defaultTerms: 'Payment is due within 15 days of invoice date. Please transfer to Bank of Baroda A/C 05740100011588 (IFSC: BARB0MEGHNA).',
       defaultCustomerNotes: 'Thank you for choosing UDM Techno Solutions.',
       invoicePrefix: 'A',
@@ -399,7 +400,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
                 Custom UPI QR Code Image (Optional override)
               </label>
               <p className="text-[11px] text-slate-500 mb-3">
-                Upload a cropped image of your UPI QR code (e.g. from Google Pay, PhonePe, or BHIM). If not provided, an auto-generated dynamic QR code will be generated for <strong className="font-mono text-indigo-900">{profile.upiId || 'sankalpnayakk-2@oksbi'}</strong>.
+                Upload a cropped image of your UPI QR code (e.g. from Google Pay, PhonePe, or BHIM). If not provided, an auto-generated dynamic QR code will be generated for <strong className="font-mono text-indigo-900">{profile.upiId || 'sankalpnayakk-2@okicici'}</strong>.
               </p>
               <div className="flex items-center gap-4">
                 {profile.upiQrImageUrl ? (
