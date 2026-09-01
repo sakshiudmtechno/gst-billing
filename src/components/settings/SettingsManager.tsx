@@ -55,7 +55,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({
       invoicePrefix: 'A',
       invoiceStartingNumber: 345,
       invoiceTemplate: 'classic',
-      authorizedSignatoryName: 'Mahendra Singh',
+      authorizedSignatoryName: '',
     }
   );
 

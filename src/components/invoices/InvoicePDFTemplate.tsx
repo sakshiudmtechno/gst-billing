@@ -385,10 +385,11 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                   </div>
                 )}
               </div>
-              <p className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider pt-1 border-t border-slate-300 mt-1">
-                {seller.authorizedSignatoryName || 'Authorized Signatory'}
-              </p>
-              <p className="text-[9px] text-slate-500 uppercase tracking-wider">Authorized Signatory</p>
+              {seller.authorizedSignatoryName && (
+                <p className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider pt-1 border-t border-slate-300 mt-1">
+                  {seller.authorizedSignatoryName}
+                </p>
+              )}
             </div>
           </div>
         </div>
