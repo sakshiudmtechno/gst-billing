@@ -388,7 +388,6 @@ export const QuoteManager: React.FC<QuoteManagerProps> = ({
             </div>
             <div className="flex items-center gap-3">
               <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Back</button>
-              <button type="button" onClick={() => resetForm()} className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
               <button type="button" onClick={handleSaveQuote} className="px-5 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm">Save Estimate</button>
             </div>
           </div>
