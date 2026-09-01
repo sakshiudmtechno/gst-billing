@@ -1,8 +1,8 @@
 import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Invoice, InvoiceTemplateType } from '../../types';
-import { formatINR, numberToIndianWords, isInterStateSupply } from '../../utils/gstUtils';
-import { Building2, Phone, Mail, Globe, CheckCircle2 } from 'lucide-react';
+import { formatINR, numberToIndianWords, isInterStateSupply, calculateBillingPeriod } from '../../utils/gstUtils';
+import { Building2, Phone, Mail, Globe, CheckCircle2, Calendar } from 'lucide-react';
 import { UdmLogo } from '../common/UdmLogo';
 
 interface InvoicePDFTemplateProps {
@@ -26,10 +26,12 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
   const seller = invoice.seller || businessProfileFallback || {};
   const logoUrl = seller?.logoUrl || businessProfileFallback?.logoUrl;
   const client = invoice.client;
-  const isInterState = invoice.isInterState ?? isInterStateSupply(seller.stateCode, invoice.placeOfSupplyCode || client.stateCode);
+  const isInterState = invoice.isInterState ?? isInterStateSupply(seller.stateCode, invoice.placeOfSupplyCode || client?.stateCode || '23');
   const isQuote = !!(invoice as any).quoteNumber;
   const docTitle = documentTitle || (isQuote ? 'SERVICE QUOTATION' : 'TAX INVOICE');
 
+  // Compute 30-day billing period
+  const billingPeriodDisplay = invoice.billingPeriod || calculateBillingPeriod(invoice.billingStartDate || invoice.invoiceDate).formattedPeriod;
 
   // Bank & UPI details (Defaults to Bank of Baroda A/C 05740100011588, IFSC BARB0MEGHNA)
   const bankName = seller.bankName || 'Bank of Baroda';
@@ -40,8 +42,14 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
   const upiId = seller.upiId || 'sankalpnayakk-2@oksbi';
   const customQrImage = seller.upiQrImageUrl || seller.qrCodeUrl;
 
-  // Generate UPI payment deep link
-  const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(accountHolderName)}&am=${invoice.grandTotal}&cu=INR&tn=${encodeURIComponent(`Invoice ${(invoice as any).quoteNumber || invoice.invoiceNumber}`)}`;
+  const advancePaid = Number(invoice.advanceAmount) || 0;
+  const totalAmountPaid = Number(invoice.amountPaid) || advancePaid;
+  const grandTotal = isQuote ? invoice.totalTaxableAmount : invoice.grandTotal;
+  const currentBalance = invoice.balanceDue !== undefined ? invoice.balanceDue : Math.max(0, grandTotal - totalAmountPaid);
+
+  // Generate UPI payment deep link with current balance or grand total
+  const upiAmount = currentBalance > 0 ? currentBalance : grandTotal;
+  const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(accountHolderName)}&am=${upiAmount}&cu=INR&tn=${encodeURIComponent(`Invoice ${(invoice as any).quoteNumber || invoice.invoiceNumber}`)}`;
 
   return (
     <div
@@ -80,7 +88,7 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
             </div>
 
             {/* Right: Invoice meta */}
-            <div className="shrink-0 w-[230px]">
+            <div className="shrink-0 w-[240px]">
               <div className="bg-indigo-900 text-white text-center py-[3px] px-2 text-[10px] font-bold uppercase tracking-widest rounded-sm">
                 {docTitle}
               </div>
@@ -92,6 +100,10 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                 <div className="flex justify-between border-b border-slate-200 pb-[2px]">
                   <span className="font-bold text-slate-700 whitespace-nowrap">{isQuote ? 'Quote Date' : 'Invoice Date'}</span>
                   <span className="font-medium text-slate-900 truncate ml-2">{(invoice as any).quoteDate || invoice.invoiceDate}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 pb-[2px]">
+                  <span className="font-bold text-slate-700 whitespace-nowrap">Service Period (30D)</span>
+                  <span className="font-semibold text-indigo-900 truncate ml-2 text-[9.5px]">{billingPeriodDisplay}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200 pb-[2px]">
                   <span className="font-bold text-slate-700 whitespace-nowrap">{isQuote ? 'Valid Until' : 'Due Date'}</span>
@@ -113,27 +125,31 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                 <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-900">Billed To (Client Details)</span>
               </div>
               <div className="p-2 text-[10.5px] text-slate-700 leading-snug">
-                <p className="font-bold text-slate-900 text-[12px] leading-tight">{client.name}</p>
-                {client.contactPerson && <p><span className="font-semibold text-slate-600">Attn:</span> {client.contactPerson}</p>}
-                {client.billingAddress && <p className="whitespace-pre-line leading-snug">{client.billingAddress}</p>}
-                <p>{client.city ? `${client.city}, ` : ''}{client.state} {client.pinCode ? `- ${client.pinCode}` : ''}</p>
+                <p className="font-bold text-slate-900 text-[12px] leading-tight">{client?.name || 'Client'}</p>
+                {client?.contactPerson && <p><span className="font-semibold text-slate-600">Attn:</span> {client.contactPerson}</p>}
+                {client?.billingAddress && <p className="whitespace-pre-line leading-snug">{client.billingAddress}</p>}
+                <p>{client?.city ? `${client.city}, ` : ''}{client?.state} {client?.pinCode ? `- ${client.pinCode}` : ''}</p>
                 <p className="font-mono pt-[2px]">
-                  <span className="font-bold text-indigo-900">GSTIN:</span> <span className="font-bold text-slate-800">{client.gstin || 'URP'}</span>
+                  <span className="font-bold text-indigo-900">GSTIN:</span> <span className="font-bold text-slate-800">{client?.gstin || 'URP'}</span>
                 </p>
-                {client.pan && <p className="font-mono"><span className="font-bold text-indigo-900">PAN:</span> {client.pan}</p>}
-                {client.phone && <p><span className="font-semibold text-slate-600">Ph:</span> {client.phone}</p>}
-                {client.email && <p className="truncate"><span className="font-semibold text-slate-600">Email:</span> <span className="truncate">{client.email}</span></p>}
+                {client?.pan && <p className="font-mono"><span className="font-bold text-indigo-900">PAN:</span> {client.pan}</p>}
+                {client?.phone && <p><span className="font-semibold text-slate-600">Ph:</span> {client.phone}</p>}
+                {client?.email && <p className="truncate"><span className="font-semibold text-slate-600">Email:</span> <span className="truncate">{client.email}</span></p>}
               </div>
             </div>
 
             {/* Billed By */}
             <div className="border border-slate-300 rounded-sm overflow-hidden">
               <div className="bg-slate-100 px-2 py-[3px] border-b border-slate-300">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-900">Billed By</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-900">Billed By & Service Scope</span>
               </div>
               <div className="p-2 text-[10.5px] text-slate-700 leading-snug space-y-[2px]">
                 <div className="flex justify-between">
                   <span className="font-bold text-slate-900">UDM Techno Solutions</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-600">Billing Cycle:</span>
+                  <span className="font-semibold text-emerald-800 text-[10px]">30 Days Recurring / Active</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-semibold text-slate-600">Contact Support:</span>
@@ -349,20 +365,41 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                 )}
 
                 <div className="flex justify-between font-bold text-indigo-950 border-t-2 border-indigo-900 pt-[2px] text-[11px]">
-                  <span>Grand Total:</span>
-                  <span className="font-mono text-[12px]">{formatINR(isQuote ? invoice.totalTaxableAmount : invoice.grandTotal)}</span>
+                  <span>Total Amount:</span>
+                  <span className="font-mono text-[12px]">{formatINR(grandTotal)}</span>
                 </div>
 
-                <div className="pt-1 border-t border-slate-200 space-y-0 mt-[2px]">
-                  <div className="flex justify-between text-emerald-800 text-[9.5px]">
-                    <span>Paid:</span>
-                    <span className="font-mono font-semibold">{formatINR(invoice.amountPaid || 0)}</span>
+                {advancePaid > 0 ? (
+                  <div className="pt-1 border-t border-slate-200 space-y-0.5 mt-[2px]">
+                    <div className="flex justify-between text-emerald-800 text-[10px] font-semibold">
+                      <span>Less: Advance Payment:</span>
+                      <span className="font-mono">- {formatINR(advancePaid)}</span>
+                    </div>
+                    {totalAmountPaid > advancePaid && (
+                      <div className="flex justify-between text-emerald-700 text-[9.5px]">
+                        <span>Other Payments:</span>
+                        <span className="font-mono">- {formatINR(totalAmountPaid - advancePaid)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-rose-800 font-bold text-[11px] border-t border-slate-200 pt-0.5">
+                      <span>Balance Due:</span>
+                      <span className="font-mono">{formatINR(currentBalance)}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-rose-800 font-bold text-[10.5px]">
-                    <span>Balance:</span>
-                    <span className="font-mono">{formatINR(invoice.balanceDue ?? (invoice.grandTotal - (invoice.amountPaid || 0)))}</span>
+                ) : (
+                  <div className="pt-1 border-t border-slate-200 space-y-0 mt-[2px]">
+                    {totalAmountPaid > 0 && (
+                      <div className="flex justify-between text-emerald-800 text-[9.5px]">
+                        <span>Amount Paid:</span>
+                        <span className="font-mono font-semibold">{formatINR(totalAmountPaid)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-rose-800 font-bold text-[10.5px]">
+                      <span>Balance Due:</span>
+                      <span className="font-mono">{formatINR(currentBalance)}</span>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -433,6 +470,7 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                 <p className="text-2xl font-bold font-mono text-white tracking-tight">{(invoice as any).quoteNumber || invoice.invoiceNumber}</p>
                 <div className="mt-2 text-xs text-indigo-200 space-y-0.5">
                   <p>Date: <span className="font-semibold text-white">{(invoice as any).quoteDate || invoice.invoiceDate}</span></p>
+                  <p>Period (30D): <span className="font-semibold text-white">{billingPeriodDisplay}</span></p>
                   <p>{isQuote ? 'Valid Until:' : 'Due Date:'} <span className="font-semibold text-white">{(invoice as any).validUntil || invoice.dueDate}</span></p>
                 </div>
               </div>
@@ -551,8 +589,24 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                 )
               )}
               <div className="pt-2 border-t border-slate-700 flex justify-between text-base font-bold text-white">
-                <span>Grand Total:</span>
-                <span className="font-mono text-indigo-300">{formatINR(isQuote ? invoice.totalTaxableAmount : invoice.grandTotal)}</span>
+                <span>Total Amount:</span>
+                <span className="font-mono text-indigo-300">{formatINR(grandTotal)}</span>
+              </div>
+              {advancePaid > 0 && (
+                <div className="flex justify-between text-emerald-400 text-xs">
+                  <span>Less: Advance Payment:</span>
+                  <span className="font-mono">- {formatINR(advancePaid)}</span>
+                </div>
+              )}
+              {totalAmountPaid > advancePaid && (
+                <div className="flex justify-between text-emerald-400 text-xs">
+                  <span>Other Payments:</span>
+                  <span className="font-mono">- {formatINR(totalAmountPaid - advancePaid)}</span>
+                </div>
+              )}
+              <div className="pt-1.5 border-t border-slate-700 flex justify-between text-sm font-bold text-rose-300">
+                <span>Balance Due:</span>
+                <span className="font-mono">{formatINR(currentBalance)}</span>
               </div>
             </div>
           </div>
@@ -584,12 +638,13 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
           <div className="flex flex-row justify-between gap-6 text-xs">
             <div className="w-[calc(50%-12px)]">
               <p className="uppercase text-[10px] font-bold text-slate-400 tracking-wider">Client</p>
-              <p className="font-bold text-black text-sm mt-1">{client.name}</p>
-              <p className="text-slate-600">{client.billingAddress}</p>
-              <p className="text-slate-800 font-mono mt-1">GSTIN: {client.gstin}</p>
+              <p className="font-bold text-black text-sm mt-1">{client?.name || 'Client'}</p>
+              <p className="text-slate-600">{client?.billingAddress}</p>
+              <p className="text-slate-800 font-mono mt-1">GSTIN: {client?.gstin}</p>
             </div>
             <div className="w-[calc(50%-12px)] text-right">
               <p className="uppercase text-[10px] font-bold text-slate-400 tracking-wider">Details</p>
+              <p className="text-slate-700 mt-1">Period (30D): <span className="font-semibold text-black">{billingPeriodDisplay}</span></p>
               <p className="text-slate-700 mt-1">{isQuote ? 'Valid Until:' : 'Due Date:'} <span className="font-semibold text-black">{(invoice as any).validUntil || invoice.dueDate}</span></p>
             </div>
           </div>
@@ -633,8 +688,18 @@ export const InvoicePDFTemplate: React.FC<InvoicePDFTemplateProps> = ({
                 </div>
               )}
               <div className="flex justify-between text-sm font-bold text-black pt-1 border-t border-slate-300">
-                <span>Grand Total:</span>
-                <span className="font-mono">{formatINR(isQuote ? invoice.totalTaxableAmount : invoice.grandTotal)}</span>
+                <span>Total Amount:</span>
+                <span className="font-mono">{formatINR(grandTotal)}</span>
+              </div>
+              {advancePaid > 0 && (
+                <div className="flex justify-between text-emerald-700 text-xs">
+                  <span>Advance Payment:</span>
+                  <span className="font-mono">- {formatINR(advancePaid)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm font-bold text-rose-700 pt-1 border-t border-slate-200">
+                <span>Balance Due:</span>
+                <span className="font-mono">{formatINR(currentBalance)}</span>
               </div>
             </div>
           </div>

@@ -120,6 +120,11 @@ export interface Invoice {
   status: InvoiceStatus;
   template: InvoiceTemplateType;
 
+  // Service / Billing Period (30 days cycle)
+  billingStartDate?: string;
+  billingEndDate?: string;
+  billingPeriod?: string;
+
   // Billed by snapshot
   seller: BusinessProfile;
 
@@ -163,6 +168,7 @@ export interface Invoice {
   totalInWords: string;
 
   // Payment Tracking
+  advanceAmount?: number;
   amountPaid: number;
   balanceDue: number;
   payments: InvoicePayment[];

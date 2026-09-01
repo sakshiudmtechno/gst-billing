@@ -15,7 +15,8 @@ import {
   formatINR,
   numberToIndianWords,
   isInterStateSupply,
-  getFinancialYear
+  getFinancialYear,
+  calculateBillingPeriod
 } from '../../utils/gstUtils';
 import { api } from '../../utils/api';
 import { InvoicePDFTemplate } from './InvoicePDFTemplate';
@@ -81,6 +82,8 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   // Form States
   const [invoiceNumber, setInvoiceNumber] = useState<string>('AUTO');
   const [invoiceDate, setInvoiceDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [billingStartDate, setBillingStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [advanceAmount, setAdvanceAmount] = useState<number>(0);
   const [dueDate, setDueDate] = useState<string>(() => {
     const d = new Date();
     d.setDate(d.getDate() + 15);
@@ -158,6 +161,8 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
           // Editing existing invoice
           setInvoiceNumber(initialInvoice.invoiceNumber);
           setInvoiceDate(initialInvoice.invoiceDate);
+          setBillingStartDate(initialInvoice.billingStartDate || initialInvoice.invoiceDate || new Date().toISOString().split('T')[0]);
+          setAdvanceAmount(initialInvoice.advanceAmount !== undefined ? initialInvoice.advanceAmount : (initialInvoice.amountPaid || 0));
           setDueDate(initialInvoice.dueDate);
           setPlaceOfSupply(initialInvoice.placeOfSupply);
           setPlaceOfSupplyCode(initialInvoice.placeOfSupplyCode);
@@ -414,11 +419,22 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   const roundOff = Math.round((grandTotal - exactGrandTotal) * 100) / 100;
   const totalInWords = numberToIndianWords(grandTotal);
 
+  // 30-Day Auto Billing Period Calculation
+  const billingInfo = calculateBillingPeriod(billingStartDate || invoiceDate);
+  const effectiveAdvance = Math.max(0, Number(advanceAmount) || 0);
+  const otherPayments = initialInvoice?.payments?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0;
+  const totalAmountPaid = effectiveAdvance + otherPayments;
+  const calculatedBalanceDue = Math.max(0, Math.round((grandTotal - totalAmountPaid) * 100) / 100);
+
   // Construct complete invoice object for preview & save
   const currentInvoiceData: Invoice = {
     id: initialInvoice?.id || `inv_${Date.now()}`,
     invoiceNumber: invoiceNumber || 'A000345',
     invoiceDate,
+    billingStartDate: billingInfo.startDate,
+    billingEndDate: billingInfo.endDate,
+    billingPeriod: billingInfo.periodText,
+    advanceAmount: effectiveAdvance,
     dueDate,
     placeOfSupply,
     placeOfSupplyCode,
@@ -505,8 +521,8 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     roundOff,
     grandTotal,
     totalInWords,
-    amountPaid: initialInvoice?.amountPaid || 0,
-    balanceDue: Math.max(0, grandTotal - (initialInvoice?.amountPaid || 0)),
+    amountPaid: totalAmountPaid,
+    balanceDue: calculatedBalanceDue,
     payments: initialInvoice?.payments || [],
     showBankDetails,
     showUpiQr,
@@ -787,10 +803,10 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
           <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 border-b border-slate-100 pb-2 flex items-center gap-1.5">
               <Building className="w-3.5 h-3.5 text-indigo-600" />
-              Invoice Meta
+              Invoice Meta & 30-Day Billing Period
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
                   Invoice Number
@@ -809,8 +825,26 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 <input
                   type="date"
                   value={invoiceDate}
-                  onChange={(e) => setInvoiceDate(e.target.value)}
+                  onChange={(e) => {
+                    const newDate = e.target.value;
+                    setInvoiceDate(newDate);
+                    if (!billingStartDate || billingStartDate === invoiceDate) {
+                      setBillingStartDate(newDate);
+                    }
+                  }}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 text-xs focus:ring-2 focus:ring-indigo-600 outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Billing Start Date
+                </label>
+                <input
+                  type="date"
+                  value={billingStartDate}
+                  onChange={(e) => setBillingStartDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-indigo-50/50 border border-indigo-200 rounded-lg text-slate-800 text-xs focus:ring-2 focus:ring-indigo-600 outline-hidden font-medium"
                 />
               </div>
 
@@ -823,6 +857,18 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-800 text-xs focus:ring-2 focus:ring-indigo-600 outline-hidden"
                 />
               </div>
+            </div>
+
+            {/* Billing Period Auto Calculation Banner */}
+            <div className="p-2.5 bg-indigo-50/60 rounded-lg border border-indigo-100 flex flex-wrap items-center justify-between text-xs gap-2">
+              <div className="flex items-center gap-2">
+                <span className="bg-indigo-600 text-white font-bold text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  30-Day Period
+                </span>
+                <span className="text-slate-600">Service Coverage:</span>
+                <strong className="text-indigo-950 font-semibold font-mono">{billingInfo.periodText}</strong>
+              </div>
+              <span className="text-[11px] text-indigo-700 font-medium">Auto-calculated 30 Days</span>
             </div>
           </div>
 
@@ -1035,8 +1081,8 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                       </div>
                     </div>
 
-                    {/* Pricing, Quantity, Unit, HSN/SAC, GST, Total Row */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs pt-1">
+                    {/* Pricing, Quantity, Unit, GST, Total Row (HSN/SAC removed from UI as requested) */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-xs pt-1">
                       <div>
                         <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">Rate / Price (₹)</label>
                         <input
@@ -1078,17 +1124,6 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">HSN/SAC</label>
-                        <input
-                          type="text"
-                          placeholder="998314"
-                          value={item.hsnSac || '998314'}
-                          onChange={(e) => updateItemField(idx, 'hsnSac', e.target.value)}
-                          className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs text-slate-800 focus:ring-2 focus:ring-indigo-600 outline-hidden"
-                        />
-                      </div>
-
-                      <div>
                         <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">GST Rate</label>
                         <select
                           value={item.gstRate}
@@ -1114,13 +1149,36 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             </div>
           </div>
 
-          {/* Section 4: Discount & Additional Charges */}
-          <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3.5">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 border-b border-slate-100 pb-2">
-              Discounts & Extra Charges
+          {/* Section 4: Discount, Advance Payment & Additional Charges */}
+          <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 border-b border-slate-100 pb-2 flex items-center justify-between">
+              <span>Discounts, Advance Payment & Charges</span>
+              <span className="text-[10px] font-normal text-emerald-700 font-mono">
+                Balance Due: {formatINR(calculatedBalanceDue)}
+              </span>
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
+              {/* Advance Payment Field */}
+              <div className="bg-emerald-50/70 p-3 rounded-lg border border-emerald-200">
+                <label className="block font-bold text-emerald-900 mb-1 flex items-center justify-between">
+                  <span>Advance Payment (₹)</span>
+                  <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded font-mono">Paid upfront</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={advanceAmount || ''}
+                  onChange={(e) => setAdvanceAmount(Number(e.target.value) || 0)}
+                  placeholder="e.g. 2000"
+                  className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-lg font-mono font-bold text-emerald-950 text-xs focus:ring-2 focus:ring-emerald-600 outline-hidden"
+                />
+                <p className="text-[10px] text-emerald-700 mt-1">
+                  Deducted directly from total amount.
+                </p>
+              </div>
+
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Invoice Overall Discount</label>
                 <div className="flex gap-2">
@@ -1144,7 +1202,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Additional Charges (Delivery / AMC)</label>
+                <label className="block font-semibold text-slate-700 mb-1">Additional Charges</label>
                 <button
                   type="button"
                   onClick={() => {
@@ -1164,6 +1222,30 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 >
                   <Plus className="w-3.5 h-3.5" /> Add Extra Charge
                 </button>
+              </div>
+            </div>
+
+            {/* Advance Payment Calculation Breakdown Summary */}
+            <div className="p-3 bg-slate-900 text-white rounded-xl space-y-1.5 text-xs font-mono">
+              <div className="flex justify-between text-slate-300 text-[11px]">
+                <span>Total Invoice Amount:</span>
+                <span className="font-bold">{formatINR(grandTotal)}</span>
+              </div>
+              {effectiveAdvance > 0 && (
+                <div className="flex justify-between text-emerald-400 text-[11px]">
+                  <span>Less: Advance Payment Received:</span>
+                  <span className="font-bold">- {formatINR(effectiveAdvance)}</span>
+                </div>
+              )}
+              {otherPayments > 0 && (
+                <div className="flex justify-between text-emerald-300 text-[11px]">
+                  <span>Other Recorded Payments:</span>
+                  <span className="font-bold">- {formatINR(otherPayments)}</span>
+                </div>
+              )}
+              <div className="pt-1.5 border-t border-slate-700 flex justify-between text-sm font-bold text-rose-300">
+                <span className="font-sans">Balance Due:</span>
+                <span>{formatINR(calculatedBalanceDue)}</span>
               </div>
             </div>
 

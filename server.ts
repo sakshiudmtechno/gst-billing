@@ -342,6 +342,61 @@ app.get('/api/invoices/next-number', (req, res) => {
   res.json({ success: true, invoiceNumber, nextSequence });
 });
 
+// Helper: Calculate 30-day billing period
+function calculateServerBillingPeriod(startDateStr?: string) {
+  const cleanStart = startDateStr || new Date().toISOString().split('T')[0];
+  const parts = cleanStart.split('-').map(Number);
+  const start = new Date(parts[0], parts[1] - 1, parts[2]);
+  const end = new Date(parts[0], parts[1] - 1, parts[2] + 29); // 30 days inclusive
+
+  const endYear = end.getFullYear();
+  const endMonth = String(end.getMonth() + 1).padStart(2, '0');
+  const endDay = String(end.getDate()).padStart(2, '0');
+  const endDateStr = `${endYear}-${endMonth}-${endDay}`;
+
+  const formatOptions: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+  const formattedStart = start.toLocaleDateString('en-IN', formatOptions);
+  const formattedEnd = end.toLocaleDateString('en-IN', formatOptions);
+
+  return {
+    billingStartDate: cleanStart,
+    billingEndDate: endDateStr,
+    billingPeriod: `${formattedStart} – ${formattedEnd} (30 Days)`
+  };
+}
+
+// Helper: Hydrate invoice with latest client data from CRM to prevent stale data
+function hydrateInvoiceClient(inv: any) {
+  if (!inv) return inv;
+  const client = db.clients.find(c => c.id === inv.clientId);
+  if (client) {
+    return {
+      ...inv,
+      client: {
+        ...inv.client,
+        ...client
+      }
+    };
+  }
+  return inv;
+}
+
+// Helper: Hydrate quote with latest client data
+function hydrateQuoteClient(quote: any) {
+  if (!quote) return quote;
+  const client = db.clients.find(c => c.id === quote.clientId);
+  if (client) {
+    return {
+      ...quote,
+      client: {
+        ...quote.client,
+        ...client
+      }
+    };
+  }
+  return quote;
+}
+
 // Clients CRUD
 app.get('/api/clients', (req, res) => {
   res.json({ success: true, data: db.clients });
@@ -352,7 +407,9 @@ app.get('/api/clients/:id', (req, res) => {
   if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
 
   // Calculate client stats & invoice history
-  const clientInvoices = db.invoices.filter(inv => inv.clientId === client.id);
+  const clientInvoices = db.invoices
+    .filter(inv => inv.clientId === client.id)
+    .map(hydrateInvoiceClient);
   const totalBilled = clientInvoices.reduce((sum, inv) => sum + (inv.status !== 'cancelled' ? inv.grandTotal : 0), 0);
   const totalPaid = clientInvoices.reduce((sum, inv) => sum + (inv.status !== 'cancelled' ? inv.amountPaid : 0), 0);
   const outstanding = totalBilled - totalPaid;
@@ -393,11 +450,45 @@ app.put('/api/clients/:id', (req, res) => {
   const index = db.clients.findIndex(c => c.id === req.params.id);
   if (index === -1) return res.status(404).json({ success: false, message: 'Client not found' });
 
-  db.clients[index] = {
+  const updatedClient = {
     ...db.clients[index],
     ...req.body,
     updatedAt: new Date().toISOString()
   };
+  db.clients[index] = updatedClient;
+
+  // Real-time synchronization: Update client data everywhere it is used (invoices, quotes, recurring)
+  db.invoices.forEach((inv, i) => {
+    if (inv.clientId === req.params.id) {
+      db.invoices[i] = {
+        ...inv,
+        client: { ...inv.client, ...updatedClient },
+        updatedAt: new Date().toISOString()
+      };
+    }
+  });
+
+  db.quotes.forEach((q, i) => {
+    if (q.clientId === req.params.id) {
+      db.quotes[i] = {
+        ...q,
+        client: { ...q.client, ...updatedClient },
+        updatedAt: new Date().toISOString()
+      };
+    }
+  });
+
+  db.recurringInvoices.forEach((r, i) => {
+    if (r.clientId === req.params.id) {
+      db.recurringInvoices[i] = {
+        ...r,
+        client: { ...r.client, ...updatedClient },
+        clientName: updatedClient.name,
+        updatedAt: new Date().toISOString()
+      };
+    }
+  });
+
   saveDb();
   addAuditLog('Client Updated', 'client', db.clients[index].id, db.clients[index].name);
   res.json({ success: true, data: db.clients[index] });
@@ -408,6 +499,18 @@ app.delete('/api/clients/:id', (req, res) => {
   if (index === -1) return res.status(404).json({ success: false, message: 'Client not found' });
   const clientName = db.clients[index].name;
   db.clients.splice(index, 1);
+
+  // Sync deletion note across all invoices for this client
+  db.invoices.forEach((inv, i) => {
+    if (inv.clientId === req.params.id) {
+      db.invoices[i] = {
+        ...inv,
+        client: { ...inv.client, name: `${inv.client.name} (Archived/Deleted)` },
+        updatedAt: new Date().toISOString()
+      };
+    }
+  });
+
   saveDb();
   addAuditLog('Client Deleted', 'client', req.params.id, clientName);
   res.json({ success: true, message: 'Client deleted successfully' });
@@ -415,13 +518,14 @@ app.delete('/api/clients/:id', (req, res) => {
 
 // Invoices CRUD
 app.get('/api/invoices', (req, res) => {
-  res.json({ success: true, data: db.invoices });
+  const hydrated = db.invoices.map(hydrateInvoiceClient);
+  res.json({ success: true, data: hydrated });
 });
 
 app.get('/api/invoices/:id', (req, res) => {
   const invoice = db.invoices.find(inv => inv.id === req.params.id);
   if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
-  res.json({ success: true, data: invoice });
+  res.json({ success: true, data: hydrateInvoiceClient(invoice) });
 });
 
 app.post('/api/invoices', (req, res) => {
@@ -439,14 +543,46 @@ app.post('/api/invoices', (req, res) => {
     advanceSequenceIfHigher(invoiceData.invoiceNumber);
   }
 
+  // Automatic 30-day Billing Period Calculation
+  const billingInfo = calculateServerBillingPeriod(invoiceData.billingStartDate || invoiceData.invoiceDate);
+  invoiceData.billingStartDate = invoiceData.billingStartDate || billingInfo.billingStartDate;
+  invoiceData.billingEndDate = invoiceData.billingEndDate || billingInfo.billingEndDate;
+  invoiceData.billingPeriod = invoiceData.billingPeriod || billingInfo.billingPeriod;
+
+  // Advance Payment & Balance Calculations
+  const advance = Number(invoiceData.advanceAmount) || 0;
+  const existingPayments = Array.isArray(invoiceData.payments) ? invoiceData.payments : [];
+  const paymentsTotal = existingPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+  const totalPaid = advance + paymentsTotal;
+  const balanceDue = Math.max(0, (Number(invoiceData.grandTotal) || 0) - totalPaid);
+
+  let calculatedStatus = invoiceData.status || 'draft';
+  if (calculatedStatus !== 'draft' && calculatedStatus !== 'cancelled') {
+    if (balanceDue <= 0.01 && totalPaid > 0) {
+      calculatedStatus = 'paid';
+    } else if (totalPaid > 0) {
+      calculatedStatus = 'partially_paid';
+    }
+  }
+
+  // Ensure latest client snapshot is captured
+  if (invoiceData.clientId) {
+    const latestClient = db.clients.find(c => c.id === invoiceData.clientId);
+    if (latestClient) {
+      invoiceData.client = { ...invoiceData.client, ...latestClient };
+    }
+  }
+
   const newInvoice = {
     id: `inv_${Date.now()}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    payments: [],
-    amountPaid: 0,
-    balanceDue: invoiceData.grandTotal || 0,
-    ...invoiceData
+    payments: existingPayments,
+    advanceAmount: advance,
+    amountPaid: totalPaid,
+    balanceDue,
+    ...invoiceData,
+    status: calculatedStatus
   };
 
   db.invoices.unshift(newInvoice);
@@ -458,10 +594,10 @@ app.post('/api/invoices', (req, res) => {
     newInvoice.id,
     `${newInvoice.invoiceNumber} (${newInvoice.client?.name || 'Client'})`,
     'UDM Admin',
-    `Total: ₹${newInvoice.grandTotal}`
+    `Total: ₹${newInvoice.grandTotal} | Advance: ₹${advance} | Bal: ₹${balanceDue}`
   );
 
-  res.status(201).json({ success: true, data: newInvoice });
+  res.status(201).json({ success: true, data: hydrateInvoiceClient(newInvoice) });
 });
 
 app.put('/api/invoices/:id', (req, res) => {
@@ -478,15 +614,53 @@ app.put('/api/invoices/:id', (req, res) => {
     advanceSequenceIfHigher(updateData.invoiceNumber);
   }
 
+  // Auto 30-day billing calculation if start date provided or modified
+  if (updateData.billingStartDate || updateData.invoiceDate) {
+    const billingInfo = calculateServerBillingPeriod(updateData.billingStartDate || updateData.invoiceDate);
+    updateData.billingStartDate = updateData.billingStartDate || billingInfo.billingStartDate;
+    updateData.billingEndDate = billingInfo.billingEndDate;
+    updateData.billingPeriod = billingInfo.billingPeriod;
+  }
+
+  // Advance Payment & Balance Calculations
+  const advance = updateData.advanceAmount !== undefined ? Number(updateData.advanceAmount) || 0 : (existing.advanceAmount || 0);
+  const currentPayments = Array.isArray(updateData.payments) ? updateData.payments : (existing.payments || []);
+  const paymentsTotal = currentPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0);
+  const totalPaid = advance + paymentsTotal;
+  const grandTotal = updateData.grandTotal !== undefined ? Number(updateData.grandTotal) : existing.grandTotal;
+  const balanceDue = Math.max(0, grandTotal - totalPaid);
+
+  let calculatedStatus = updateData.status || existing.status;
+  if (calculatedStatus !== 'draft' && calculatedStatus !== 'cancelled') {
+    if (balanceDue <= 0.01 && totalPaid > 0) {
+      calculatedStatus = 'paid';
+    } else if (totalPaid > 0) {
+      calculatedStatus = 'partially_paid';
+    }
+  }
+
+  // Ensure latest client data from CRM is attached
+  const clientId = updateData.clientId || existing.clientId;
+  if (clientId) {
+    const latestClient = db.clients.find(c => c.id === clientId);
+    if (latestClient) {
+      updateData.client = { ...(existing.client || {}), ...(updateData.client || {}), ...latestClient };
+    }
+  }
+
   db.invoices[index] = {
     ...existing,
     ...updateData,
+    advanceAmount: advance,
+    amountPaid: totalPaid,
+    balanceDue,
+    status: calculatedStatus,
     updatedAt: new Date().toISOString()
   };
   saveDb();
 
   addAuditLog('Invoice Updated', 'invoice', db.invoices[index].id, db.invoices[index].invoiceNumber);
-  res.json({ success: true, data: db.invoices[index] });
+  res.json({ success: true, data: hydrateInvoiceClient(db.invoices[index]) });
 });
 
 app.delete('/api/invoices/:id', (req, res) => {
@@ -520,7 +694,9 @@ app.post('/api/invoices/:id/payments', (req, res) => {
   };
 
   const payments = [...(invoice.payments || []), newPayment];
-  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const advance = Number(invoice.advanceAmount) || 0;
+  const paymentsTotal = payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalPaid = advance + paymentsTotal;
   const balanceDue = Math.max(0, invoice.grandTotal - totalPaid);
 
   let status = invoice.status;
@@ -546,10 +722,10 @@ app.post('/api/invoices/:id/payments', (req, res) => {
     invoice.id,
     invoice.invoiceNumber,
     'UDM Admin',
-    `Recorded ₹${paymentAmount} via ${paymentMethod}`
+    `Recorded ₹${paymentAmount} via ${paymentMethod} (Bal: ₹${balanceDue})`
   );
 
-  res.json({ success: true, data: db.invoices[index], payment: newPayment });
+  res.json({ success: true, data: hydrateInvoiceClient(db.invoices[index]), payment: newPayment });
 });
 
 // Duplicate Invoice

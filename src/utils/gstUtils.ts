@@ -243,3 +243,43 @@ export const FINANCIAL_YEARS = [
   'FY 2027-28',
   'FY 2028-29'
 ];
+
+/**
+ * Calculate 30-day service/invoice billing period from any start date.
+ * E.g., if billing starts on 1 August, the period is 1 August – 30 August (30 days).
+ * Applies exact 30-day calculation (inclusive start to day 30: startDate + 29 days).
+ */
+export function calculateBillingPeriod(startDateStr: string): {
+  startDate: string;
+  endDate: string;
+  formattedStart: string;
+  formattedEnd: string;
+  formattedPeriod: string;
+  periodText: string;
+} {
+  const cleanStart = startDateStr || new Date().toISOString().split('T')[0];
+  const parts = cleanStart.split('-').map(Number);
+  const start = new Date(parts[0], parts[1] - 1, parts[2]);
+
+  // Add 29 days so that startDate + 29 days = 30 days total (inclusive)
+  const end = new Date(parts[0], parts[1] - 1, parts[2] + 29);
+
+  const endYear = end.getFullYear();
+  const endMonth = String(end.getMonth() + 1).padStart(2, '0');
+  const endDay = String(end.getDate()).padStart(2, '0');
+  const endDateStr = `${endYear}-${endMonth}-${endDay}`;
+
+  const formatOptions: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+  const formattedStart = start.toLocaleDateString('en-IN', formatOptions);
+  const formattedEnd = end.toLocaleDateString('en-IN', formatOptions);
+
+  return {
+    startDate: cleanStart,
+    endDate: endDateStr,
+    formattedStart,
+    formattedEnd,
+    formattedPeriod: `${formattedStart} – ${formattedEnd} (30 Days)`,
+    periodText: `${formattedStart} – ${formattedEnd} (30 Days)`
+  };
+}
+
